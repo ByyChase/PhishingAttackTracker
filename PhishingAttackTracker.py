@@ -14,30 +14,6 @@ db = None
 
 #--------------------------- Functions -----------------------------------------
 
-def clear_terminal():
-    '''
-    This function is used to clear the terminal and reset it to the normal out put. This is used 
-    when a function is outputing too much to the CLI and it needs cleared.
-    '''
-
-    os.system('cls' if os.name == 'nt' else 'clear')
-
-    print(" _____  _     _     _     _                     _   _             _    ")
-    print("|  __ \| |   (_)   | |   (_)               /\  | | | |           | |   ")
-    print("| |__) | |__  _ ___| |__  _ _ __   __ _   /  \ | |_| |_ __ _  ___| | __")
-    print("|  ___/| '_ \| / __| '_ \| | '_ \ / _` | / /\ \| __| __/ _` |/ __| |/ /")
-    print("| |    | | | | \__ \ | | | | | | | (_| |/ ____ \ |_| || (_| | (__|   <")
-    print("|_|____|_| |_|_|___/_| |_|_|_| |_|\__, /_/    \_\__|\__\__,_|\___|_|\_\ ")
-    print("|__   __|           | |            __/ |")                               
-    print("   | |_ __ __ _  ___| | _____ _ __|___/")                                
-    print("   | | '__/ _` |/ __| |/ / _ \ '__|")                                    
-    print("   | | | | (_| | (__|   <  __/ |")                                       
-    print("   |_|_|  \__,_|\___|_|\_\___|_|") 
-    print("\n\n\n----------------------------- PROGRAM SUB-OPTIONS -----------------------------\n")
-    print("Type 'Export' at any time to see all IP Addresses in the database")
-    print("Type 'Exit' at any time to quit the program\n\n")
-
-
 def check(IP_Address):
     """
     This function is used to check if an IP address is formated correctly. It uses
@@ -163,12 +139,14 @@ def create_DB(c):
     c: cursor object 
         This is the cursor object created for the database.
     """
+    print('------------ Creating Database ------------')
 
     try:
         c.execute("""CREATE TABLE PHISHINGDATA (
-                        DOMAIN text PRIMARY KEY,
-                        IP_ADDRESS text PRIMARY KEY,
-                        EMAIL test PRIMARY KEY,
+                        ID integer PRIMARY KEY,
+                        DOMAIN text,
+                        IP_ADDRESS text,
+                        EMAIL text,
                         IP_RANGE text,
                         OWNER text,
                         DATE_CREATED text,
@@ -228,7 +206,7 @@ def commit_ip_address(domain, ip_address, email, ip_range, owner, date_created, 
     cursor().execute(statement, domain, ip_address, email, ip_range, owner, date_created, date_expired, intent, times_found, ref, blocked)
     commit()
 
-def fetch(primary_key):
+def fetch(primary_key, input_classification):
     """
 
     This function is used for retreiving the IP address from the datbase.
@@ -238,9 +216,15 @@ def fetch(primary_key):
     primary_key : String
         A string holding an email address, 
     """
+    if input_classification == 'ip_address':
+        statement = "SELECT * FROM PHISHINGDATA WHERE IP_ADDRESS = ?"
 
-    #SQL statement
-    statement = "SELECT * FROM PHISHINGDATA WHERE ? IN(IP_ADDRESS,DOMAIN,EMAIL)"
+    elif input_classification == 'email_address':
+        statement = "SELECT * FROM PHISHINGDATA WHERE EMAIL = ?"
+
+    else:
+        statement = "SELECT * FROM PHISHINGDATA WHERE DOMAIN = ?"
+
     #Execture the SQL statement
     table_data = cursor().execute(statement, (primary_key,)).fetchone()
 
@@ -277,9 +261,9 @@ def update(domain, ip_address, email, ip_range, owner, date_created, date_expire
     """
 
     #SQL statement
-    statement = "UPDATE IPADDRESS SET DESCRIPTION = ?, IP_RANGE = ?, DATE = ?, TIMES_FOUND = ?, BLOCKED = ? WHERE  IP_ADDRESS = ?"
+    statement = "UPDATE PHISHINGDATA SET DOMAIN = ?, IP_ADDRESS = ?, EMAIL = ?, IP_RANGE = ?, OWNER = ?, DATE_CREATED = ?, DATE_EXPIRED = ?, INTENT = ?, TIME_FOUND = ?, REF = ?, BLOCKED = ?"
     #Execute the SQL statement
-    cursor().execute(statement, (description, ip_range, date, times_found, blocked, ip_address))
+    cursor().execute(statement, (domain, ip_address, email, ip_range, owner, date_created, date_expired, intent, times_found, ref, blocked))
     commit()
 
 def fetch_all():
@@ -295,13 +279,13 @@ def fetch_all():
     """
 
     #SQL statement
-    statement = "SELECT * FROM IPADDRESS"
+    statement = "SELECT * FROM PHISHINGDATA"
     #Execture the SQL statement
-    ip_address_data = cursor().execute(statement).fetchall()
+    database_data = cursor().execute(statement).fetchall()
 
     #If there is data it is returned to the user
-    if ip_address_data:
-        return ip_address_data
+    if database_data:
+        return database_data
 
     #If there is no data then 0 is returned
     else:
@@ -390,6 +374,38 @@ def export():
         except Exception as e:
             print(e)
 
+def enter_ip_address(user_input,user_known_intent,ref):
+
+    try:
+
+        IP_data = ipwhois.IPWhois(user_input).lookup_rdap()
+
+    except:
+
+        print("\n\n------------ ERROR ------------\nThere was a problem reaching out to the API\n\Restarting Scriptn\n")
+        main()
+
+    entity = IP_data.get('entities')
+
+    #TODO Check if the IP is already inside of the database already.
+
+    #TODO Show the user to data if it is already in the database
+
+    #TODO Ask the user if they would like the block the IP address if it is not already blocked
+
+    #TODO Ask the user for the intent and referance if the IP isn't already there 
+
+    IP_data_list = ["N/A", user_input, "N/A", IP_data.get('asn_cidr'), IP_data.get('objects').get(entity[0]).get('contact').get("name"), IP_data.get('asn_date'), "N/A", user_known_intent, 0, ref, 0]
+
+    print(IP_data_list)
+
+def user_intent():
+
+    intent = input("\n\nPlease input what you consider the intent for this entry? \n\nInput: ")
+
+    return intent
+
+
 #----------------------------- Main Code ---------------------------------------
 
 def main():
@@ -399,8 +415,10 @@ def main():
     user_known_intent = "N/A"
     ref = "n/A"
 
-    user_input = str(input('Please input an IP address, Email Address, or Domain: '))
+    user_input = str(input('Please input an IP address, Email Address, or Domain. \n\nInput: '))
 
+    user_known_intent = user_intent()
+    
     if user_input.lower() == 'exit':
         exit()
 
@@ -420,34 +438,25 @@ def main():
                 input_classification = "email_address"
 
         if input_classification == "":
-            input_classification = "Domain"
+            input_classification = "domain"
 
     
     print('\n')
 
     if input_classification == "ip_address":
-        try:
 
-            IP_data = ipwhois.IPWhois(user_input).lookup_rdap()
+        is_in_database = fetch(user_input, input_classification)
 
-        except:
+        if is_in_database == "0":
+            #TODO Something 
+            pass
 
-            print("\n\n------------ ERROR ------------\nThere was a problem reaching out to the API\n\Restarting Scriptn\n")
-            main()
+        else:
+            enter_ip_address(user_input,user_known_intent,'test')
 
-        entity = IP_data.get('entities')
-
-        #TODO Check if the IP is already inside of the database already.
-
-        #TODO Show the user to data if it is already in the database
-
-        #TODO Ask the user if they would like the block the IP address if it is not already blocked
-
-        #TODO Ask the user for the intent and referance if the IP isn't already there 
-
-        IP_data_list = ["N/A", user_input, "N/A", IP_data.get('asn_cidr'), IP_data.get('objects').get(entity[0]).get('contact').get("name"), IP_data.get('asn_date'), "N/A", user_known_intent, 0, ref, 0]
-
-        print(IP_data_list)
+    
+    
+        
 
 
     
@@ -498,13 +507,11 @@ path = askdirectory(title='Select Folder')
 
 try:
     with contextlib.redirect_stdout(None):
-        load_DB(path + '/ip_checker.db')
+        load_DB(path + '/phishing_attack_tracker.db')
 
 except Exception as e:
     print("\n\nERROR: No Database Found")
     print("\n----------------------------- Creating New Database ----------------------------- \n\n")
-    
-clear_terminal()
  
 main()
 
