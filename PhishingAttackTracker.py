@@ -59,7 +59,7 @@ def load_DB(db_file):
     
     #Checks to see if the database file exists. If it does not the database
     # will be created
-    if os.path.isfile('ip_checker.db'):
+    if os.path.isfile('phishing_attack_tracker.db'):
 
        
 
@@ -387,9 +387,9 @@ def enter_ip_address(user_input,user_known_intent,ref):
 
     entity = IP_data.get('entities')
 
-    #TODO Check if the IP is already inside of the database already.
 
-    #TODO Show the user to data if it is already in the database
+
+    
 
     #TODO Ask the user if they would like the block the IP address if it is not already blocked
 
@@ -397,7 +397,11 @@ def enter_ip_address(user_input,user_known_intent,ref):
 
     IP_data_list = ["N/A", user_input, "N/A", IP_data.get('asn_cidr'), IP_data.get('objects').get(entity[0]).get('contact').get("name"), IP_data.get('asn_date'), "N/A", user_known_intent, 0, ref, 0]
 
-    print(IP_data_list)
+    print("\n\n------------ Exporting Data Found ------------\n")
+    print("\n\nDOMAIN           IP ADDRESS     EMAIL ADDRESS                 IP RANGE          OWNER                                   DATE CREATED     DATE EXPIRES")
+    print("-----------------------------------------------------------------------------------------------------------------------------------------------------------")
+    print("%-16s %-14s %-29s %-17s %-39s %-16s %-16s"% (IP_data_list[0],IP_data_list[1],IP_data_list[2],IP_data_list[3],IP_data_list[4],IP_data_list[5],IP_data_list[6]))
+
 
 def user_intent():
 
@@ -429,6 +433,7 @@ def main():
 
     if check(user_input):
         input_classification = "ip_address"
+        print(input_classification)
         pass
 
     else:
@@ -448,11 +453,12 @@ def main():
         is_in_database = fetch(user_input, input_classification)
 
         if is_in_database == "0":
-            #TODO Something 
-            pass
+            enter_ip_address(user_input,user_known_intent,'test')
 
         else:
-            enter_ip_address(user_input,user_known_intent,'test')
+            
+            #TODO Show the user to data if it is already in the database
+            pass
 
     
     
